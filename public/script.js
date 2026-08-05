@@ -1,6 +1,11 @@
+const socket = io();
+
 const boton = document.getElementById("agregar");
 const input = document.getElementById("producto");
 const lista = document.getElementById("lista");
+
+
+
 
 
 // Cuando carga la página
@@ -16,12 +21,16 @@ function cargarProductos(){
         .then(productos => {
 
             productos.forEach(producto => {
+
                 mostrarProducto(producto);
+
             });
 
         });
 
 }
+
+
 
 
 
@@ -51,11 +60,7 @@ boton.addEventListener("click",()=>{
 
     })
 
-    .then(res=>res.json())
-
-    .then(producto=>{
-
-        mostrarProducto(producto);
+    .then(()=>{
 
         input.value="";
 
@@ -68,10 +73,15 @@ boton.addEventListener("click",()=>{
 
 
 
+
+
 function mostrarProducto(producto){
 
 
     const li=document.createElement("li");
+
+    li.dataset.id = producto.id;
+
 
 
     const zonaProducto=document.createElement("div");
@@ -106,41 +116,34 @@ function mostrarProducto(producto){
 
 
 
+
     check.addEventListener("change",()=>{
 
 
-    let estado = check.checked ? 1 : 0;
+        let estado = check.checked ? 1 : 0;
 
 
 
-    fetch("/productos/"+producto.id,{
+        fetch("/productos/"+producto.id,{
 
-        method:"PUT",
+            method:"PUT",
 
-        headers:{
-            "Content-Type":"application/json"
-        },
+            headers:{
+                "Content-Type":"application/json"
+            },
 
-        body:JSON.stringify({
-            comprado:estado
-        })
+            body:JSON.stringify({
+                comprado:estado
+            })
+
+        });
+
+
 
     });
 
 
 
-    if(check.checked){
-
-        nombre.classList.add("comprado");
-
-    }else{
-
-        nombre.classList.remove("comprado");
-
-    }
-
-
-});
 
 
 
@@ -148,6 +151,8 @@ function mostrarProducto(producto){
     zonaProducto.appendChild(check);
 
     zonaProducto.appendChild(nombre);
+
+
 
 
 
@@ -165,20 +170,17 @@ function mostrarProducto(producto){
     eliminar.addEventListener("click",()=>{
 
 
-        fetch("/productos/"+producto.id,{
+    fetch("/productos/"+producto.id,{
+        method:"DELETE"
+    })
+    .then(()=>{
 
-            method:"DELETE"
-
-        })
-
-        .then(()=>{
-
-            li.remove();
-
-        });
-
+        li.remove();
 
     });
+
+
+});
 
 
 
@@ -193,3 +195,94 @@ function mostrarProducto(producto){
 
 
 }
+
+
+
+
+
+
+
+// ================================
+// ACTUALIZACIONES EN TIEMPO REAL
+// ================================
+
+
+// Alguien añade un producto
+
+socket.on("producto añadido",(producto)=>{
+
+
+    // Evita duplicados
+
+    if(!document.querySelector(`[data-id="${producto.id}"]`)){
+
+        mostrarProducto(producto);
+
+    }
+
+
+});
+
+
+
+
+// Alguien elimina un producto
+
+socket.on("producto eliminado",(id)=>{
+
+
+    const elemento=document.querySelector(
+        `[data-id="${id}"]`
+    );
+
+
+    if(elemento){
+
+        elemento.remove();
+
+    }
+
+
+});
+
+
+
+
+// Alguien marca/desmarca comprado
+
+socket.on("producto actualizado",(datos)=>{
+
+
+    const elemento=document.querySelector(
+        `[data-id="${datos.id}"]`
+    );
+
+
+    if(elemento){
+
+
+        const check=elemento.querySelector("input");
+
+        const nombre=elemento.querySelector("span");
+
+
+
+        check.checked=datos.comprado;
+
+
+
+        if(datos.comprado){
+
+            nombre.classList.add("comprado");
+
+        }else{
+
+            nombre.classList.remove("comprado");
+
+        }
+
+
+    }
+
+
+});
