@@ -6,169 +6,145 @@ const { Server } = require("socket.io");
 const db = require("./db/database");
 
 const app = express();
-
 const server = http.createServer(app);
-
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-
 app.use(express.json());
-
-app.use(express.static(path.join(__dirname,"public")));
-
+app.use(express.static(path.join(__dirname, "public")));
 
 
 // Obtener productos
-app.get("/productos",(req,res)=>{
+app.get("/productos", async (req, res) => {
 
-    db.all(
-        "SELECT * FROM productos",
-        [],
-        (error,filas)=>{
+    try {
 
-            if(error){
-                console.log(error);
-                return res.sendStatus(500);
-            }
+        const resultado = await db.query(
+            "SELECT * FROM productos ORDER BY id ASC"
+        );
 
-            res.json(filas);
+        res.json(resultado.rows);
 
-        }
-    );
+    } catch (error) {
+
+        console.log(error);
+        res.sendStatus(500);
+
+    }
 
 });
-
 
 
 
 // Añadir producto
-app.post("/productos",(req,res)=>{
+app.post("/productos", async (req, res) => {
 
-    const nombre=req.body.nombre;
+    const nombre = req.body.nombre;
 
+    try {
 
-    db.run(
-        "INSERT INTO productos(nombre, comprado) VALUES(?,0)",
-        [nombre],
+        const resultado = await db.query(
 
-        function(error){
+            "INSERT INTO productos(nombre, comprado) VALUES($1,0) RETURNING *",
 
-            if(error){
-                console.log(error);
-                return res.sendStatus(500);
-            }
+            [nombre]
 
+        );
 
-            const producto={
-                id:this.lastID,
-                nombre:nombre,
-                comprado:0
-            };
+        const producto = resultado.rows[0];
 
+        io.emit("producto añadido", producto);
 
-            io.emit("producto añadido", producto);
+        res.json(producto);
 
+    } catch (error) {
 
-            res.json(producto);
+        console.log(error);
+        res.sendStatus(500);
 
-        }
-    );
+    }
 
 });
-
 
 
 
 // Eliminar
-app.delete("/productos/:id",(req,res)=>{
+app.delete("/productos/:id", async (req, res) => {
 
+    const id = req.params.id;
 
-    const id=req.params.id;
+    try {
 
+        await db.query(
+            "DELETE FROM productos WHERE id=$1",
+            [id]
+        );
 
-    db.run(
-        "DELETE FROM productos WHERE id=?",
-        [id],
+        io.emit("producto eliminado", id);
 
-        function(error){
+        res.sendStatus(200);
 
-            if(error){
-                console.log(error);
-                return res.sendStatus(500);
-            }
+    } catch (error) {
 
+        console.log(error);
+        res.sendStatus(500);
 
-            io.emit("producto eliminado", id);
-
-
-            res.sendStatus(200);
-
-        }
-    );
-
+    }
 
 });
-
 
 
 
 // Actualizar comprado
-app.put("/productos/:id",(req,res)=>{
+app.put("/productos/:id", async (req, res) => {
 
+    const id = req.params.id;
+    const comprado = req.body.comprado;
 
-    const id=req.params.id;
-    const comprado=req.body.comprado;
+    try {
 
+        await db.query(
 
-    db.run(
-        "UPDATE productos SET comprado=? WHERE id=?",
-        [
-            comprado,
-            id
-        ],
+            "UPDATE productos SET comprado=$1 WHERE id=$2",
 
-        function(error){
+            [
+                comprado,
+                id
+            ]
 
-            if(error){
-                console.log(error);
-                return res.sendStatus(500);
-            }
+        );
 
+        io.emit("producto actualizado", {
+            id: id,
+            comprado: comprado
+        });
 
-            io.emit("producto actualizado",{
-                id:id,
-                comprado:comprado
-            });
+        res.sendStatus(200);
 
+    } catch (error) {
 
-            res.sendStatus(200);
+        console.log(error);
+        res.sendStatus(500);
 
-        }
-    );
-
+    }
 
 });
 
 
 
 
+io.on("connection", (socket) => {
 
-io.on("connection",(socket)=>{
-
-    console.log("Cliente conectado:",socket.id);
+    console.log("Cliente conectado:", socket.id);
 
 });
 
 
 
 
+server.listen(PORT, () => {
 
-server.listen(PORT,()=>{
-
-    console.log(
-        `Servidor iniciado en http://localhost:${PORT}`
-    );
+    console.log(`Servidor iniciado en http://localhost:${PORT}`);
 
 });

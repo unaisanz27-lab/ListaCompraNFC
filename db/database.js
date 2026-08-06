@@ -1,19 +1,20 @@
-const sqlite3 = require("sqlite3").verbose();
+const { Pool } = require("pg");
 
-const db = new sqlite3.Database("./database.db");
-
-
-db.serialize(()=>{
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS productos(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT,
-            comprado INTEGER DEFAULT 0
-        )
-    `);
-
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
+pool.query(`
+    CREATE TABLE IF NOT EXISTS productos(
+        id SERIAL PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        comprado INTEGER DEFAULT 0
+    )
+`)
+.then(() => console.log("Base de datos preparada"))
+.catch(err => console.error(err));
 
-module.exports = db;
+module.exports = pool;
